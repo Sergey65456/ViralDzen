@@ -6,6 +6,8 @@ from contextlib import redirect_stdout
 
 from viraldzen.cli import main
 from viraldzen.collect import keep_item
+from viraldzen.dzen import DzenApi
+from viraldzen.http import DzenHttpError
 from viraldzen.models import ViralItem
 
 
@@ -39,6 +41,21 @@ class KeepItemTests(unittest.TestCase):
         off = _item(title="Тиара принцессы", source_kind="feed")
         self.assertFalse(keep_item(off, channel_only=False, seed_urls=set()))
         self.assertTrue(keep_item(off, channel_only=True, seed_urls=set()))
+
+
+class FetchArticleMissingTests(unittest.TestCase):
+    def test_http_404_returns_none(self) -> None:
+        class DeadClient:
+            def get_text(self, url: str, accept: str | None = None) -> str:
+                raise DzenHttpError(f"HTTP 404 for {url}", status=404, url=url)
+
+            def warmup(self) -> None:
+                return None
+
+        api = DzenApi(DeadClient())  # type: ignore[arg-type]
+        self.assertIsNone(
+            api.fetch_article("https://dzen.ru/a/YCOv_9buVzJJUFOz", topic="кредиты")
+        )
 
 
 class CliCollectHelpTests(unittest.TestCase):

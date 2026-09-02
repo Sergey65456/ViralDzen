@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from viraldzen.http import DzenClient, build_url
+from viraldzen.http import DzenClient, DzenHttpError, build_url
 from viraldzen.models import OfficialTopic, ViralItem
 from viraldzen.parse import (
     canonical_article_url,
@@ -145,11 +145,22 @@ class DzenApi:
         return items
 
     def fetch_article(self, url: str, topic: str) -> ViralItem | None:
-        html = self.client.get_text(canonical_article_url(url), accept="text/html,application/json;q=0.9")
+        # Удалённая карточка (404) не должна ронять весь collect.
+        try:
+            html = self.client.get_text(
+                canonical_article_url(url), accept="text/html,application/json;q=0.9"
+            )
+        except DzenHttpError:
+            return None
         ssr = find_publishers_ssr(html)
         if not ssr:
             self.client.warmup()
-            html = self.client.get_text(canonical_article_url(url), accept="text/html,application/json;q=0.9")
+            try:
+                html = self.client.get_text(
+                    canonical_article_url(url), accept="text/html,application/json;q=0.9"
+                )
+            except DzenHttpError:
+                return None
             ssr = find_publishers_ssr(html)
         if not ssr:
             return None
